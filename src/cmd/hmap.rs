@@ -1,9 +1,9 @@
 use crate::array::RespArray;
+use crate::bulk_string::BulkString;
 use crate::cmd::{
     extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HSet, RESP_OK,
 };
 use crate::frame::RespFrame;
-use crate::map::RespMap;
 use crate::null::RespNull;
 
 impl CommandExecutor for HGet {
@@ -27,12 +27,20 @@ impl CommandExecutor for HGetAll {
 
         match hmap {
             Some(hmap) => {
-                let mut map = RespMap::new();
+                let mut data = Vec::with_capacity(hmap.len());
                 for v in hmap.iter() {
                     let key = v.key().to_owned();
-                    map.insert(key, v.value().clone());
+                    data.push((key, v.value().clone()))
                 }
-                Ok(map.into())
+                if self.sort {
+                    data.sort_by(|a, b| a.0.cmp(&b.0))
+                }
+                let ret = data
+                    .into_iter()
+                    .flat_map(|(k, v)| vec![BulkString::from(k).into(), v])
+                    .collect::<Vec<RespFrame>>();
+
+                Ok(RespArray::new(ret).into())
             }
             None => Ok(RespArray::new([]).into()),
         }
@@ -88,6 +96,7 @@ impl TryFrom<RespArray> for HGetAll {
         match args.next() {
             Some(RespFrame::BulkString(key)) => Ok(HGetAll {
                 key: String::from_utf8(key.0)?,
+                sort: false,
             }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid key or filed or value".to_string(),
@@ -131,12 +140,41 @@ mod tests {
     }
 
     #[test]
-    fn test_hgetall_from_resp_array() -> Result<()> {
+    fn test_hset_hget_hgetall_command() -> Result<()> {
+        let backend = crate::backend::Backend::new();
         let mut buf = BytesMut::new();
-        buf.extend_from_slice(b"*2\r\n$7\r\nhgetall\r\n$4\r\nkey1\r\n");
+        buf.extend_from_slice(b"*4\r\n$4\r\nhset\r\n$3\r\nmap\r\n$5\r\nhello\r\n$5\r\nworld\r\n");
         let frame = RespArray::decode(&mut buf)?;
-        let result: HGetAll = frame.try_into()?;
-        assert_eq!(result.key, "key1");
+        let cmd: HSet = frame.try_into()?;
+        let ret = cmd.execute(&backend);
+        assert_eq!(ret?, RESP_OK.clone());
+        buf.extend_from_slice(b"*4\r\n$4\r\nhset\r\n$3\r\nmap\r\n$6\r\nhello1\r\n$6\r\nworld1\r\n");
+        let frame = RespArray::decode(&mut buf)?;
+        let cmd: HSet = frame.try_into()?;
+        let ret = cmd.execute(&backend);
+        assert_eq!(ret?, RESP_OK.clone());
+
+        buf.extend_from_slice(b"*3\r\n$4\r\nhget\r\n$3\r\nmap\r\n$6\r\nhello1\r\n");
+        let frame = RespArray::decode(&mut buf)?;
+        let cmd: HGet = frame.try_into()?;
+        let ret = cmd.execute(&backend);
+        assert_eq!(ret?, BulkString::new("world1").into());
+
+        let cmd = HGetAll {
+            key: "map".to_string(),
+            sort: true,
+        };
+        let ret = cmd.execute(&backend);
+        assert_eq!(
+            ret?,
+            RespArray::new([
+                BulkString::new("hello").into(),
+                BulkString::new("world").into(),
+                BulkString::new("hello1").into(),
+                BulkString::new("world1").into()
+            ])
+            .into()
+        );
 
         Ok(())
     }

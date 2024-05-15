@@ -56,7 +56,11 @@ impl Deref for BulkString {
         &self.0
     }
 }
-
+impl From<String> for BulkString {
+    fn from(s: String) -> Self {
+        BulkString(s.into_bytes())
+    }
+}
 impl From<&str> for BulkString {
     fn from(s: &str) -> Self {
         BulkString(s.as_bytes().to_vec())
@@ -113,6 +117,7 @@ impl RespDecode for RespNullBulkString {
         Ok(5)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::frame::RespFrame;
