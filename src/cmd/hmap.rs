@@ -1,5 +1,40 @@
-use crate::cmd::{extract_args, validate_command, CommandError, HGet, HGetAll, HSet};
-use crate::{RespArray, RespFrame};
+use crate::cmd::{
+    extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HSet, RESP_OK,
+};
+use crate::{RespArray, RespFrame, RespMap};
+
+impl CommandExecutor for HGet {
+    fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
+        Ok(backend
+            .hget(&self.key, &self.field)
+            .unwrap_or(RespFrame::Null(crate::RespNull)))
+    }
+}
+
+impl CommandExecutor for HSet {
+    fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
+        backend.hset(self.key, self.field, self.value);
+        Ok(RESP_OK.clone())
+    }
+}
+
+impl CommandExecutor for HGetAll {
+    fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
+        let hmap = backend.hmap.get(&self.key);
+
+        match hmap {
+            Some(hmap) => {
+                let mut map = RespMap::new();
+                for v in hmap.iter() {
+                    let key = v.key().to_owned();
+                    map.insert(key, v.value().clone());
+                }
+                Ok(map.into())
+            }
+            None => Ok(RespArray::new([]).into()),
+        }
+    }
+}
 
 impl TryFrom<RespArray> for HGet {
     type Error = CommandError;

@@ -10,8 +10,8 @@ pub struct Backend(Arc<BackendInner>);
 
 #[derive(Debug)]
 pub struct BackendInner {
-    map: DashMap<String, RespFrame>,
-    hmap: DashMap<String, DashMap<String, RespFrame>>,
+    pub map: DashMap<String, RespFrame>,
+    pub hmap: DashMap<String, DashMap<String, RespFrame>>,
 }
 
 impl Deref for Backend {
@@ -52,7 +52,7 @@ impl Backend {
             .get(key)
             .and_then(|v| v.get(field).map(|v| v.value().clone()))
     }
-    pub fn hset(&self, key: &str, field: &str, value: RespFrame) {
+    pub fn hset(&self, key: String, field: String, value: RespFrame) {
         self.hmap
             .entry(key.to_string())
             .or_default()

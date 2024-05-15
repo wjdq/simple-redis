@@ -26,16 +26,50 @@ pub enum CommandError {
 
 #[enum_dispatch]
 pub trait CommandExecutor {
-    fn execute(self, backend: &Backend) -> RespFrame;
+    fn execute(self, backend: &Backend) -> Result<RespFrame, CommandError>;
 }
 
-// #[enum_dispatch(CommandExecutor)]
+#[enum_dispatch(CommandExecutor)]
+#[derive(Debug)]
 pub enum Command {
     Get(Get),
     Set(Set),
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    UnRecognized(UnRecognized),
+}
+
+impl TryFrom<RespFrame> for Command {
+    type Error = CommandError;
+
+    fn try_from(value: RespFrame) -> Result<Self, Self::Error> {
+        match value {
+            RespFrame::Array(array) => array.try_into(),
+            _ => Err(CommandError::InvalidCommand(
+                "Command must be an Array".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryFrom<RespArray> for Command {
+    type Error = CommandError;
+    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
+        match value.first() {
+            Some(RespFrame::BulkString(ref cmd)) => match cmd.as_ref() {
+                b"get" => Ok(Get::try_from(value)?.into()),
+                b"set" => Ok(Set::try_from(value)?.into()),
+                b"hget" => Ok(HGet::try_from(value)?.into()),
+                b"hset" => Ok(HSet::try_from(value)?.into()),
+                b"hgetall" => Ok(HGetAll::try_from(value)?.into()),
+                _ => Ok(UnRecognized.into()),
+            },
+            _ => Err(CommandError::InvalidCommand(
+                "Command must have a BulkString as the first argument".to_string(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -51,26 +85,28 @@ pub struct Set {
 
 #[derive(Debug)]
 pub struct HGet {
-    #[allow(dead_code)]
     key: String,
-    #[allow(dead_code)]
     field: String,
 }
 
 #[derive(Debug)]
 pub struct HSet {
-    #[allow(dead_code)]
     key: String,
-    #[allow(dead_code)]
     field: String,
-    #[allow(dead_code)]
     value: RespFrame,
 }
 
 #[derive(Debug)]
 pub struct HGetAll {
-    #[allow(dead_code)]
     key: String,
+}
+#[derive(Debug)]
+pub struct UnRecognized;
+
+impl CommandExecutor for UnRecognized {
+    fn execute(self, _backend: &Backend) -> Result<RespFrame, CommandError> {
+        Ok(RESP_OK.clone())
+    }
 }
 
 fn validate_command(

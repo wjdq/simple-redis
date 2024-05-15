@@ -4,15 +4,15 @@ use crate::cmd::{
 use crate::{RespArray, RespFrame, RespNull};
 
 impl CommandExecutor for Get {
-    fn execute(self, backend: &crate::backend::Backend) -> RespFrame {
-        backend.get(&self.key).unwrap_or(RespFrame::Null(RespNull))
+    fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
+        Ok(backend.get(&self.key).unwrap_or(RespFrame::Null(RespNull)))
     }
 }
 
 impl CommandExecutor for Set {
-    fn execute(self, backend: &crate::backend::Backend) -> RespFrame {
+    fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
         backend.set(&self.key, self.value);
-        RESP_OK.clone()
+        Ok(RESP_OK.clone())
     }
 }
 
@@ -90,12 +90,12 @@ mod tests {
             value: RespFrame::BulkString(b"world".into()),
         };
         let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_OK.clone());
+        assert_eq!(result?, RESP_OK.clone());
         let cmd = Get {
             key: "hello".to_string(),
         };
         let result = cmd.execute(&backend);
-        assert_eq!(result, RespFrame::BulkString(b"world".into()));
+        assert_eq!(result?, RespFrame::BulkString(b"world".into()));
 
         Ok(())
     }
