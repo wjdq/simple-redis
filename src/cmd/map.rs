@@ -1,7 +1,9 @@
+use crate::array::RespArray;
 use crate::cmd::{
     extract_args, validate_command, CommandError, CommandExecutor, Get, Set, RESP_OK,
 };
-use crate::{RespArray, RespFrame, RespNull};
+use crate::frame::RespFrame;
+use crate::null::RespNull;
 
 impl CommandExecutor for Get {
     fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
@@ -57,8 +59,10 @@ mod tests {
     use anyhow::Result;
     use bytes::BytesMut;
 
+    use crate::array::RespArray;
     use crate::cmd::{CommandExecutor, Get, Set, RESP_OK};
-    use crate::{RespArray, RespDecode, RespFrame};
+    use crate::decode::RespDecode;
+    use crate::frame::RespFrame;
 
     #[test]
     fn test_get_try_from_resp_array() -> Result<()> {

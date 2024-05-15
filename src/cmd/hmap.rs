@@ -1,13 +1,16 @@
+use crate::array::RespArray;
 use crate::cmd::{
     extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HSet, RESP_OK,
 };
-use crate::{RespArray, RespFrame, RespMap};
+use crate::frame::RespFrame;
+use crate::map::RespMap;
+use crate::null::RespNull;
 
 impl CommandExecutor for HGet {
     fn execute(self, backend: &crate::backend::Backend) -> Result<RespFrame, CommandError> {
         Ok(backend
             .hget(&self.key, &self.field)
-            .unwrap_or(RespFrame::Null(crate::RespNull)))
+            .unwrap_or(RespFrame::Null(RespNull)))
     }
 }
 
@@ -97,7 +100,7 @@ mod tests {
     use anyhow::Result;
     use bytes::BytesMut;
 
-    use crate::RespDecode;
+    use crate::decode::RespDecode;
 
     use super::*;
 

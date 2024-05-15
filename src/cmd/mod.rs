@@ -2,8 +2,11 @@ use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
 
+use crate::array::RespArray;
 use crate::backend::Backend;
-use crate::{RespArray, RespError, RespFrame, SimpleString};
+use crate::frame::RespFrame;
+use crate::simple_string::SimpleString;
+use crate::RespError;
 
 mod hmap;
 mod map;

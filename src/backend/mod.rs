@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 
-use crate::RespFrame;
+use crate::frame::RespFrame;
 
 #[derive(Debug, Clone)]
 pub struct Backend(Arc<BackendInner>);
